@@ -552,3 +552,4 @@ Please explain:
 3. The trade-off between return and risk.
 4. A concise academic interpretation suitable for a report.
 """.strip()
+       custom_prompt = st.text_area("Prompt for ChatGPT", value=default_prompt, height=260)
