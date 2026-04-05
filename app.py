@@ -612,11 +612,12 @@ if st.session_state.analysis_done and st.session_state.analysis_data is not None
 
     st.subheader("ChatGPT Results Interpretation")
 
-    st.text_area(
-        "Prompt for ChatGPT",
-        key="chatgpt_prompt",
-        height=260
-    )
+    if st.button("Generate ChatGPT Interpretation"):
+    with st.spinner("Generating interpretation..."):
+        st.session_state.chatgpt_output = get_openai_interpretation(
+            st.session_state.chatgpt_prompt,
+            openai_model
+        )
 
     if st.button("Generate ChatGPT Interpretation"):
         with st.spinner("Generating interpretation..."):
