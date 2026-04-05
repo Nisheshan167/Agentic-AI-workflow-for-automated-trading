@@ -382,7 +382,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.subheader("ChatGPT Interpretation")
-    openai_api_key = st.text_input("OpenAI API Key", type="password", value=os.getenv("OPENAI_API_KEY", ""))
+    api_key = st.secrets["OPENAI_API_KEY"]
     openai_model = st.text_input("OpenAI Model", value="gpt-5.4-mini")
 
     run_button = st.button("Run Analysis", type="primary")
