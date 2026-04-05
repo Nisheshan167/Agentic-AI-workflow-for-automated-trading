@@ -60,6 +60,18 @@ def safe_download_data(ticker: str, period: str, interval: str) -> pd.DataFrame:
 
     df = df[required_cols].copy()
     df = df.reset_index()
+
+    # Handle both Date and Datetime index names safely
+    date_col = None
+    for col in df.columns:
+        if str(col).lower() in ["date", "datetime"]:
+            date_col = col
+            break
+
+    if date_col is None:
+        raise ValueError("No Date/Datetime column found after download.")
+
+    df = df.rename(columns={date_col: "Date"})
     df["Date"] = pd.to_datetime(df["Date"])
     df = df.sort_values("Date").drop_duplicates().reset_index(drop=True)
     df = df.ffill().dropna().reset_index(drop=True)
@@ -433,7 +445,7 @@ with st.sidebar:
     st.subheader("ChatGPT Interpretation")
     openai_model = st.text_input("OpenAI Model", value="gpt-4o-mini")
 
-    run_button = st.button("Run Analysis", type="primary")
+    run_button = st.button("Run Analysis", type="primary", key="run_analysis_button")
 
 
 # -----------------------------
@@ -517,6 +529,10 @@ Please explain:
             "ticker": ticker,
             "period": period,
             "interval": interval,
+            "sentiment_mode": sentiment_mode,
+            "static_sentiment": static_sentiment,
+            "volatility_threshold": volatility_threshold,
+            "openai_model": openai_model,
             "data": data,
             "news_df": news_df,
             "sentiment_df": sentiment_df,
@@ -546,6 +562,7 @@ if st.session_state.analysis_done and st.session_state.analysis_data is not None
     final_decision = analysis["final_decision"]
     risk_message = analysis["risk_message"]
     ticker_display = analysis["ticker"]
+    sentiment_mode_display = analysis["sentiment_mode"]
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Ticker", ticker_display)
@@ -556,7 +573,7 @@ if st.session_state.analysis_done and st.session_state.analysis_data is not None
     st.subheader("Agentic AI Summary")
     left, right = st.columns(2)
     with left:
-        st.write(f"**Sentiment mode:** {sentiment_mode}")
+        st.write(f"**Sentiment mode:** {sentiment_mode_display}")
         st.write(f"**Overall sentiment used:** {overall_sentiment_to_use}")
         st.write(f"**Sentiment score:** {avg_sentiment_score:.2f}")
     with right:
@@ -608,18 +625,12 @@ if st.session_state.analysis_done and st.session_state.analysis_data is not None
         data=csv_bytes,
         file_name=f"{ticker_display.lower()}_agentic_trading_results.csv",
         mime="text/csv",
+        key="download_results_csv_button",
     )
 
     st.subheader("ChatGPT Results Interpretation")
 
-    if st.button("Generate ChatGPT Interpretation"):
-      with st.spinner("Generating interpretation..."):
-        st.session_state.chatgpt_output = get_openai_interpretation(
-            st.session_state.chatgpt_prompt,
-            openai_model
-        )
-
-    if st.button("Generate ChatGPT Interpretation"):
+    if st.button("Generate ChatGPT Interpretation", key="generate_chatgpt_interpretation_button"):
         with st.spinner("Generating interpretation..."):
             st.session_state.chatgpt_output = get_openai_interpretation(
                 st.session_state.chatgpt_prompt,
