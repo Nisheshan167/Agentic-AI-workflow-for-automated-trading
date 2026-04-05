@@ -552,5 +552,3 @@ Please explain:
 3. The trade-off between return and risk.
 4. A concise academic interpretation suitable for a report.
 """.strip()
-
-
