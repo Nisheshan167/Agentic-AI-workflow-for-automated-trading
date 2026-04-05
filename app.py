@@ -19,6 +19,22 @@ st.set_page_config(page_title="Agentic AI Trading Dashboard", layout="wide")
 
 
 # -----------------------------
+# Session state initialization
+# -----------------------------
+if "analysis_done" not in st.session_state:
+    st.session_state.analysis_done = False
+
+if "analysis_data" not in st.session_state:
+    st.session_state.analysis_data = None
+
+if "chatgpt_prompt" not in st.session_state:
+    st.session_state.chatgpt_prompt = ""
+
+if "chatgpt_output" not in st.session_state:
+    st.session_state.chatgpt_output = ""
+
+
+# -----------------------------
 # Utility functions
 # -----------------------------
 def safe_download_data(ticker: str, period: str, interval: str) -> pd.DataFrame:
@@ -362,10 +378,15 @@ def get_openai_interpretation(prompt: str, model: str) -> str:
     if OpenAI is None:
         return "OpenAI package is not installed."
 
+    api_key = None
+
     try:
         api_key = st.secrets["OPENAI_API_KEY"]
     except Exception:
-        return "OPENAI_API_KEY not found in Streamlit secrets."
+        api_key = os.getenv("OPENAI_API_KEY")
+
+    if not api_key:
+        return "OPENAI_API_KEY not found in Streamlit secrets or environment variables."
 
     try:
         client = OpenAI(api_key=api_key)
@@ -464,70 +485,6 @@ if run_button:
         initial_decision = decision_agent(latest, overall_sentiment_to_use)
         final_decision, risk_message = risk_agent(initial_decision, latest, volatility_threshold)
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Ticker", ticker)
-        col2.metric("Latest Close", f"{latest['Close']:.2f}")
-        col3.metric("Baseline Signal", latest["Baseline_Signal"])
-        col4.metric("Agentic Final Decision", final_decision)
-
-        st.subheader("Agentic AI Summary")
-        left, right = st.columns(2)
-        with left:
-            st.write(f"**Sentiment mode:** {sentiment_mode}")
-            st.write(f"**Overall sentiment used:** {overall_sentiment_to_use}")
-            st.write(f"**Sentiment score:** {avg_sentiment_score:.2f}")
-        with right:
-            st.write(f"**Initial decision:** {initial_decision}")
-            st.write(f"**Final decision:** {final_decision}")
-            st.write(f"**Risk agent note:** {risk_message}")
-
-        st.subheader("Performance Metrics")
-        styled_results = results.copy()
-        for col in ["Total Return", "Volatility", "Max Drawdown"]:
-            styled_results[col] = styled_results[col].map(lambda x: f"{x:.2%}")
-        styled_results["Sharpe Ratio"] = styled_results["Sharpe Ratio"].map(lambda x: f"{x:.2f}")
-        st.dataframe(styled_results, use_container_width=True)
-
-        st.subheader("Return Comparison")
-        st.plotly_chart(cumulative_return_chart(data), use_container_width=True)
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.plotly_chart(price_indicator_chart(data), use_container_width=True)
-        with c2:
-            st.plotly_chart(rsi_chart(data), use_container_width=True)
-
-        st.plotly_chart(macd_chart(data), use_container_width=True)
-
-        st.subheader("Recent News and Sentiment")
-        if news_df.empty:
-            st.info("No Yahoo Finance RSS headlines were returned for this ticker right now.")
-        else:
-            news_display = news_df.copy().rename(
-                columns={"title": "Headline", "published": "Published", "link": "Link"}
-            )
-            if not sentiment_df.empty:
-                news_display["Sentiment"] = sentiment_df["sentiment"].values[: len(news_display)]
-            st.dataframe(news_display, use_container_width=True)
-
-        st.subheader("Raw Backtest Data")
-        preview_cols = [
-            "Date", "Close", "SMA_Short", "SMA_Long", "RSI", "MACD", "MACD_Signal",
-            "Baseline_Signal", "Agentic_Signal", "Baseline_Position", "Agentic_Position",
-            "Cumulative_Market_Return", "Cumulative_Baseline_Return", "Cumulative_Agentic_Return"
-        ]
-        available_preview_cols = [c for c in preview_cols if c in data.columns]
-        st.dataframe(data[available_preview_cols].tail(50), use_container_width=True)
-
-        csv_bytes = data.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="Download results CSV",
-            data=csv_bytes,
-            file_name=f"{ticker.lower()}_agentic_trading_results.csv",
-            mime="text/csv",
-        )
-
-        st.subheader("ChatGPT Results Interpretation")
         default_prompt = f"""
 Interpretation of the strategy results.
 
@@ -553,14 +510,123 @@ Please explain:
 4. A concise academic interpretation suitable for a report.
 """.strip()
 
-        custom_prompt = st.text_area("Prompt for ChatGPT", value=default_prompt, height=260)
-
-        if st.button("Generate ChatGPT Interpretation"):
-            with st.spinner("Generating interpretation..."):
-                interpretation = get_openai_interpretation(custom_prompt, openai_model)
-            st.write(interpretation)
+        st.session_state.analysis_done = True
+        st.session_state.chatgpt_prompt = default_prompt
+        st.session_state.chatgpt_output = ""
+        st.session_state.analysis_data = {
+            "ticker": ticker,
+            "period": period,
+            "interval": interval,
+            "data": data,
+            "news_df": news_df,
+            "sentiment_df": sentiment_df,
+            "results": results,
+            "latest": latest,
+            "overall_sentiment_to_use": overall_sentiment_to_use,
+            "avg_sentiment_score": avg_sentiment_score,
+            "initial_decision": initial_decision,
+            "final_decision": final_decision,
+            "risk_message": risk_message,
+        }
 
     except Exception as exc:
         st.error(f"Error: {exc}")
+
+
+if st.session_state.analysis_done and st.session_state.analysis_data is not None:
+    analysis = st.session_state.analysis_data
+    data = analysis["data"]
+    news_df = analysis["news_df"]
+    sentiment_df = analysis["sentiment_df"]
+    results = analysis["results"]
+    latest = analysis["latest"]
+    overall_sentiment_to_use = analysis["overall_sentiment_to_use"]
+    avg_sentiment_score = analysis["avg_sentiment_score"]
+    initial_decision = analysis["initial_decision"]
+    final_decision = analysis["final_decision"]
+    risk_message = analysis["risk_message"]
+    ticker_display = analysis["ticker"]
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Ticker", ticker_display)
+    col2.metric("Latest Close", f"{latest['Close']:.2f}")
+    col3.metric("Baseline Signal", latest["Baseline_Signal"])
+    col4.metric("Agentic Final Decision", final_decision)
+
+    st.subheader("Agentic AI Summary")
+    left, right = st.columns(2)
+    with left:
+        st.write(f"**Sentiment mode:** {sentiment_mode}")
+        st.write(f"**Overall sentiment used:** {overall_sentiment_to_use}")
+        st.write(f"**Sentiment score:** {avg_sentiment_score:.2f}")
+    with right:
+        st.write(f"**Initial decision:** {initial_decision}")
+        st.write(f"**Final decision:** {final_decision}")
+        st.write(f"**Risk agent note:** {risk_message}")
+
+    st.subheader("Performance Metrics")
+    styled_results = results.copy()
+    for col in ["Total Return", "Volatility", "Max Drawdown"]:
+        styled_results[col] = styled_results[col].map(lambda x: f"{x:.2%}")
+    styled_results["Sharpe Ratio"] = styled_results["Sharpe Ratio"].map(lambda x: f"{x:.2f}")
+    st.dataframe(styled_results, use_container_width=True)
+
+    st.subheader("Return Comparison")
+    st.plotly_chart(cumulative_return_chart(data), use_container_width=True)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.plotly_chart(price_indicator_chart(data), use_container_width=True)
+    with c2:
+        st.plotly_chart(rsi_chart(data), use_container_width=True)
+
+    st.plotly_chart(macd_chart(data), use_container_width=True)
+
+    st.subheader("Recent News and Sentiment")
+    if news_df.empty:
+        st.info("No Yahoo Finance RSS headlines were returned for this ticker right now.")
+    else:
+        news_display = news_df.copy().rename(
+            columns={"title": "Headline", "published": "Published", "link": "Link"}
+        )
+        if not sentiment_df.empty:
+            news_display["Sentiment"] = sentiment_df["sentiment"].values[: len(news_display)]
+        st.dataframe(news_display, use_container_width=True)
+
+    st.subheader("Raw Backtest Data")
+    preview_cols = [
+        "Date", "Close", "SMA_Short", "SMA_Long", "RSI", "MACD", "MACD_Signal",
+        "Baseline_Signal", "Agentic_Signal", "Baseline_Position", "Agentic_Position",
+        "Cumulative_Market_Return", "Cumulative_Baseline_Return", "Cumulative_Agentic_Return"
+    ]
+    available_preview_cols = [c for c in preview_cols if c in data.columns]
+    st.dataframe(data[available_preview_cols].tail(50), use_container_width=True)
+
+    csv_bytes = data.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="Download results CSV",
+        data=csv_bytes,
+        file_name=f"{ticker_display.lower()}_agentic_trading_results.csv",
+        mime="text/csv",
+    )
+
+    st.subheader("ChatGPT Results Interpretation")
+
+    st.text_area(
+        "Prompt for ChatGPT",
+        key="chatgpt_prompt",
+        height=260
+    )
+
+    if st.button("Generate ChatGPT Interpretation"):
+        with st.spinner("Generating interpretation..."):
+            st.session_state.chatgpt_output = get_openai_interpretation(
+                st.session_state.chatgpt_prompt,
+                openai_model
+            )
+
+    if st.session_state.chatgpt_output:
+        st.write(st.session_state.chatgpt_output)
+
 else:
     st.info("Pick your settings in the sidebar and click 'Run Analysis'.")
