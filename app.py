@@ -553,14 +553,4 @@ Please explain:
 4. A concise academic interpretation suitable for a report.
 """.strip()
 
-        custom_prompt = st.text_area("Prompt for ChatGPT", value=default_prompt, height=260)
 
-        if st.button("Generate ChatGPT Interpretation"):
-            with st.spinner("Generating interpretation..."):
-                interpretation = get_openai_interpretation(custom_prompt, openai_model)
-            st.write(interpretation)
-
-    except Exception as exc:
-        st.error(f"Error: {exc}")
-else:
-    st.info("Pick your settings in the sidebar and click 'Run Analysis'.")
