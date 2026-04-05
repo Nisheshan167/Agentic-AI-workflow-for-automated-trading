@@ -529,7 +529,7 @@ if run_button:
 
         st.subheader("ChatGPT Results Interpretation")
         default_prompt = f"""
-You are a financial analytics assistant. Interpret these strategy results clearly for a student project.
+Interpretation of the strategy results.
 
 Ticker: {ticker}
 Period: {period}
