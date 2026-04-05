@@ -613,7 +613,7 @@ if st.session_state.analysis_done and st.session_state.analysis_data is not None
     st.subheader("ChatGPT Results Interpretation")
 
     if st.button("Generate ChatGPT Interpretation"):
-    with st.spinner("Generating interpretation..."):
+      with st.spinner("Generating interpretation..."):
         st.session_state.chatgpt_output = get_openai_interpretation(
             st.session_state.chatgpt_prompt,
             openai_model
