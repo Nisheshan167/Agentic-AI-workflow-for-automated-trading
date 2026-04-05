@@ -452,7 +452,7 @@ with st.sidebar:
 # Main app
 # -----------------------------
 st.title("Agentic AI Trading Dashboard")
-st.caption("Interactive Streamlit app for baseline vs agentic AI stock strategy comparison")
+st.caption("A stock strategy analysis dashboard with technical indicators, sentiment, and risk controls")
 
 st.markdown(
     """
