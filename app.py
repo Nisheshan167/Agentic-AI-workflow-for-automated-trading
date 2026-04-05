@@ -9,7 +9,6 @@ import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
 
-# Optional OpenAI interpretation support
 try:
     from openai import OpenAI
 except Exception:
@@ -22,7 +21,6 @@ st.set_page_config(page_title="Agentic AI Trading Dashboard", layout="wide")
 # -----------------------------
 # Utility functions
 # -----------------------------
-
 def safe_download_data(ticker: str, period: str, interval: str) -> pd.DataFrame:
     df = yf.download(
         ticker,
@@ -56,8 +54,10 @@ def compute_rsi(close: pd.Series, window: int = 14) -> pd.Series:
     delta = close.diff()
     gain = delta.where(delta > 0, 0.0)
     loss = -delta.where(delta < 0, 0.0)
+
     avg_gain = gain.rolling(window=window).mean()
     avg_loss = loss.rolling(window=window).mean()
+
     rs = avg_gain / avg_loss.replace(0, np.nan)
     rsi = 100 - (100 / (1 + rs))
     return rsi.fillna(50)
@@ -102,8 +102,8 @@ def make_baseline_signals(df: pd.DataFrame, rsi_buy_max: float, rsi_sell_min: fl
 def get_yahoo_finance_news(ticker: str, max_items: int = 10) -> pd.DataFrame:
     url = f"https://finance.yahoo.com/rss/headline?s={ticker}"
     feed = feedparser.parse(url)
-    rows: List[Dict[str, Optional[str]]] = []
 
+    rows: List[Dict[str, Optional[str]]] = []
     for entry in feed.entries[:max_items]:
         rows.append(
             {
@@ -119,8 +119,8 @@ def get_yahoo_finance_news(ticker: str, max_items: int = 10) -> pd.DataFrame:
 def simple_sentiment_label(text: str) -> str:
     positive_words = {
         "beat", "beats", "surge", "rally", "gain", "gains", "growth", "strong",
-        "upgrade", "record", "profit", "profits", "optimism", "bullish", "expands",
-        "outperform", "rebound", "boost", "positive"
+        "upgrade", "record", "profit", "profits", "optimism", "bullish",
+        "expands", "outperform", "rebound", "boost", "positive"
     }
     negative_words = {
         "miss", "misses", "fall", "falls", "drop", "drops", "weak", "downgrade",
@@ -146,6 +146,7 @@ def score_news_sentiment(news_df: pd.DataFrame) -> Tuple[pd.DataFrame, str, floa
 
     sentiment_map = {"Positive": 1, "Neutral": 0, "Negative": -1}
     rows = []
+
     for title in news_df["title"].fillna(""):
         label = simple_sentiment_label(title)
         rows.append(
@@ -196,8 +197,10 @@ def decision_agent(latest_row: pd.Series, overall_sentiment: str) -> str:
 
 def risk_agent(decision: str, latest_row: pd.Series, volatility_threshold: float) -> Tuple[str, str]:
     vol = latest_row.get("Rolling Volatility", np.nan)
+
     if pd.notna(vol) and vol > volatility_threshold and decision == "Buy":
         return "Hold", "Risk Agent blocked Buy because rolling volatility exceeded the selected threshold."
+
     return decision, "Risk Agent approved the decision."
 
 
@@ -242,6 +245,7 @@ def make_positions(signal_series: pd.Series) -> pd.Series:
 
 def add_backtest(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
+
     out["Baseline_Position"] = make_positions(out["Baseline_Signal"])
     out["Agentic_Position"] = make_positions(out["Agentic_Signal"])
 
@@ -251,6 +255,7 @@ def add_backtest(df: pd.DataFrame) -> pd.DataFrame:
     out["Cumulative_Market_Return"] = (1 + out["Daily Return"].fillna(0)).cumprod()
     out["Cumulative_Baseline_Return"] = (1 + out["Baseline_Return"].fillna(0)).cumprod()
     out["Cumulative_Agentic_Return"] = (1 + out["Agentic_Return"].fillna(0)).cumprod()
+
     return out
 
 
@@ -270,8 +275,8 @@ def sharpe_ratio(series: pd.Series) -> float:
 
 def max_drawdown(cumulative_series: pd.Series) -> float:
     rolling_max = cumulative_series.cummax()
-    dd = (cumulative_series - rolling_max) / rolling_max
-    return float(dd.min())
+    drawdown = (cumulative_series - rolling_max) / rolling_max
+    return float(drawdown.min())
 
 
 def metrics_table(df: pd.DataFrame) -> pd.DataFrame:
@@ -307,7 +312,11 @@ def cumulative_return_chart(df: pd.DataFrame) -> go.Figure:
     fig.add_trace(go.Scatter(x=df["Date"], y=df["Cumulative_Market_Return"], mode="lines", name="Buy-and-Hold"))
     fig.add_trace(go.Scatter(x=df["Date"], y=df["Cumulative_Baseline_Return"], mode="lines", name="Baseline Technical"))
     fig.add_trace(go.Scatter(x=df["Date"], y=df["Cumulative_Agentic_Return"], mode="lines", name="Agentic AI"))
-    fig.update_layout(title="Cumulative Return Comparison", xaxis_title="Date", yaxis_title="Cumulative Return")
+    fig.update_layout(
+        title="Cumulative Return Comparison",
+        xaxis_title="Date",
+        yaxis_title="Cumulative Return"
+    )
     return fig
 
 
@@ -316,7 +325,11 @@ def price_indicator_chart(df: pd.DataFrame) -> go.Figure:
     fig.add_trace(go.Scatter(x=df["Date"], y=df["Close"], mode="lines", name="Close"))
     fig.add_trace(go.Scatter(x=df["Date"], y=df["SMA_Short"], mode="lines", name="SMA Short"))
     fig.add_trace(go.Scatter(x=df["Date"], y=df["SMA_Long"], mode="lines", name="SMA Long"))
-    fig.update_layout(title="Price and Moving Averages", xaxis_title="Date", yaxis_title="Price")
+    fig.update_layout(
+        title="Price and Moving Averages",
+        xaxis_title="Date",
+        yaxis_title="Price"
+    )
     return fig
 
 
@@ -325,7 +338,11 @@ def rsi_chart(df: pd.DataFrame) -> go.Figure:
     fig.add_trace(go.Scatter(x=df["Date"], y=df["RSI"], mode="lines", name="RSI"))
     fig.add_hline(y=70, line_dash="dash")
     fig.add_hline(y=30, line_dash="dash")
-    fig.update_layout(title="RSI", xaxis_title="Date", yaxis_title="RSI")
+    fig.update_layout(
+        title="RSI",
+        xaxis_title="Date",
+        yaxis_title="RSI"
+    )
     return fig
 
 
@@ -333,16 +350,22 @@ def macd_chart(df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df["Date"], y=df["MACD"], mode="lines", name="MACD"))
     fig.add_trace(go.Scatter(x=df["Date"], y=df["MACD_Signal"], mode="lines", name="MACD Signal"))
-    fig.update_layout(title="MACD", xaxis_title="Date", yaxis_title="Value")
+    fig.update_layout(
+        title="MACD",
+        xaxis_title="Date",
+        yaxis_title="Value"
+    )
     return fig
 
 
-def get_openai_interpretation(prompt: str, api_key: str, model: str) -> str:
+def get_openai_interpretation(prompt: str, model: str) -> str:
     if OpenAI is None:
-        return "OpenAI Python package is not installed. Run: pip install openai"
+        return "OpenAI package is not installed."
 
-    if not api_key.strip():
-        return "Add an OpenAI API key in the sidebar to generate ChatGPT interpretation."
+    try:
+        api_key = st.secrets["OPENAI_API_KEY"]
+    except Exception:
+        return "OPENAI_API_KEY not found in Streamlit secrets."
 
     try:
         client = OpenAI(api_key=api_key)
@@ -351,14 +374,13 @@ def get_openai_interpretation(prompt: str, api_key: str, model: str) -> str:
             input=prompt,
         )
         return response.output_text.strip()
-    except Exception as exc:
-        return f"Could not generate interpretation: {exc}"
+    except Exception as e:
+        return f"Error generating interpretation: {e}"
 
 
 # -----------------------------
 # Sidebar controls
 # -----------------------------
-
 st.sidebar.title("Controls")
 
 with st.sidebar:
@@ -378,12 +400,17 @@ with st.sidebar:
     st.subheader("Agentic AI Settings")
     sentiment_mode = st.radio("Sentiment mode", ["Manual sentiment", "Derived sentiment"], index=0)
     static_sentiment = st.selectbox("Manual overall sentiment", ["Positive", "Neutral", "Negative"], index=0)
-    volatility_threshold = st.slider("Risk Agent Volatility Threshold", min_value=0.005, max_value=0.080, value=0.030, step=0.001)
+    volatility_threshold = st.slider(
+        "Risk Agent Volatility Threshold",
+        min_value=0.005,
+        max_value=0.080,
+        value=0.030,
+        step=0.001,
+    )
 
     st.markdown("---")
     st.subheader("ChatGPT Interpretation")
-    api_key = st.secrets["OPENAI_API_KEY"]
-    openai_model = st.text_input("OpenAI Model", value="gpt-5.4-mini")
+    openai_model = st.text_input("OpenAI Model", value="gpt-4o-mini")
 
     run_button = st.button("Run Analysis", type="primary")
 
@@ -391,7 +418,6 @@ with st.sidebar:
 # -----------------------------
 # Main app
 # -----------------------------
-
 st.title("Agentic AI Trading Dashboard")
 st.caption("Interactive Streamlit app for baseline vs agentic AI stock strategy comparison")
 
@@ -430,6 +456,7 @@ if run_button:
             static_sentiment=overall_sentiment_to_use,
             volatility_threshold=volatility_threshold,
         )
+
         data = add_backtest(data)
         results = metrics_table(data)
 
@@ -444,7 +471,7 @@ if run_button:
         col4.metric("Agentic Final Decision", final_decision)
 
         st.subheader("Agentic AI Summary")
-        left, right = st.columns([1, 1])
+        left, right = st.columns(2)
         with left:
             st.write(f"**Sentiment mode:** {sentiment_mode}")
             st.write(f"**Overall sentiment used:** {overall_sentiment_to_use}")
@@ -476,11 +503,12 @@ if run_button:
         if news_df.empty:
             st.info("No Yahoo Finance RSS headlines were returned for this ticker right now.")
         else:
-            news_display = news_df.copy()
+            news_display = news_df.copy().rename(
+                columns={"title": "Headline", "published": "Published", "link": "Link"}
+            )
             if not sentiment_df.empty:
-                news_display = news_display.rename(columns={"title": "Headline", "published": "Published", "link": "Link"})
                 news_display["Sentiment"] = sentiment_df["sentiment"].values[: len(news_display)]
-                st.dataframe(news_display, use_container_width=True)
+            st.dataframe(news_display, use_container_width=True)
 
         st.subheader("Raw Backtest Data")
         preview_cols = [
@@ -526,9 +554,10 @@ Please explain:
 """.strip()
 
         custom_prompt = st.text_area("Prompt for ChatGPT", value=default_prompt, height=260)
+
         if st.button("Generate ChatGPT Interpretation"):
             with st.spinner("Generating interpretation..."):
-                interpretation = get_openai_interpretation(custom_prompt, openai_api_key, openai_model)
+                interpretation = get_openai_interpretation(custom_prompt, openai_model)
             st.write(interpretation)
 
     except Exception as exc:
